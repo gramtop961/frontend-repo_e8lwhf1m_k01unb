@@ -1,28 +1,93 @@
-import { useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react';
+import Desktop from './components/Desktop.jsx';
+import Taskbar from './components/Taskbar.jsx';
+import StartMenu from './components/StartMenu.jsx';
+import WindowManager from './components/WindowManager.jsx';
 
-function App() {
-  const [count, setCount] = useState(0)
+const portfolioItems = [
+  { title: 'Social design system', url: 'https://www.figma.com' },
+  { title: 'Landing page', url: 'https://www.figma.com' },
+  { title: 'Dashboard Design', url: 'https://www.figma.com' },
+  { title: 'Product Pages', url: 'https://www.figma.com' },
+  { title: 'Social Media Content', url: 'https://www.figma.com' },
+  { title: 'Performance marketing ads', url: 'https://www.figma.com' },
+  { title: 'UX and UI design case study', url: 'https://www.figma.com' },
+  { title: 'Brand Guidelines', url: 'https://www.figma.com' },
+  { title: 'Print Ads', url: 'https://www.figma.com' },
+  { title: 'Video samples', url: 'https://www.figma.com' },
+];
+
+export default function App() {
+  const [startOpen, setStartOpen] = useState(false);
+  const [windows, setWindows] = useState([]);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+  const toggleStart = useCallback(() => setStartOpen((s) => !s), []);
+  const closeStart = useCallback(() => setStartOpen(false), []);
+
+  const openWindow = useCallback((item) => {
+    setWindows((prev) => {
+      const id = Date.now() + Math.random();
+      const baseW = Math.min(1000, Math.max(720, window.innerWidth * 0.7));
+      const baseH = Math.min(700, Math.max(520, window.innerHeight * 0.7));
+      const w = isMobile ? window.innerWidth : baseW;
+      const h = isMobile ? window.innerHeight - 56 : baseH; // leave room for taskbar
+      const x = isMobile ? 0 : Math.max(16, (window.innerWidth - w) / 2);
+      const y = isMobile ? 0 : Math.max(16, (window.innerHeight - h) / 3);
+      return [
+        ...prev,
+        {
+          id,
+          title: item.title,
+          url: item.url,
+          x,
+          y,
+          width: w,
+          height: h,
+          z: prev.length ? Math.max(...prev.map((p) => p.z)) + 1 : 1,
+          maximized: isMobile,
+        },
+      ];
+    });
+    closeStart();
+  }, [closeStart, isMobile]);
+
+  const bringToFront = useCallback((id) => {
+    setWindows((prev) => {
+      const maxZ = prev.length ? Math.max(...prev.map((w) => w.z)) : 0;
+      return prev.map((w) => (w.id === id ? { ...w, z: maxZ + 1 } : w));
+    });
+  }, []);
+
+  const updateWindow = useCallback((id, data) => {
+    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, ...data } : w)));
+  }, []);
+
+  const closeWindow = useCallback((id) => {
+    setWindows((prev) => prev.filter((w) => w.id !== id));
+  }, []);
+
+  const desktopActions = useMemo(() => ({ openWindow }), [openWindow]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">
-          Vibe Coding Platform
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Your AI-powered development environment
-        </p>
-        <div className="text-center">
-          <button
-            onClick={() => setCount(count + 1)}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
-          >
-            Count is {count}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+    <div className="relative h-screen w-screen overflow-hidden select-none" onClick={closeStart}>
+      <Desktop items={portfolioItems} actions={desktopActions} />
 
-export default App
+      <WindowManager
+        windows={windows}
+        onFocus={bringToFront}
+        onUpdate={updateWindow}
+        onClose={closeWindow}
+      />
+
+      <StartMenu
+        open={startOpen}
+        items={portfolioItems}
+        onOpenItem={openWindow}
+        onRequestClose={closeStart}
+      />
+
+      <Taskbar onStartClick={(e) => { e.stopPropagation(); toggleStart(); }} />
+    </div>
+  );
+}
